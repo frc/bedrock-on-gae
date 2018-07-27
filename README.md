@@ -216,3 +216,82 @@ Log out and in to verify the Auth0 setup is working.
 The application list at https://manage.auth0.com/#/applications
 should now contain a new entry, created by the Auth0 plugin
 setup wizard step described above. The name of the application is same as the title of the WP site you created. You *must* use descriptive names. Change the Auth0 application name if necessary. All sites and apps called just "wp", "foo" etc. may be deleted without any warning.
+
+## Note about google-app-engine plugin
+
+  Define this environment variable before activating the GAE specific google-app-engine plugin. This is required for `wp-cli`
+  to work after activating this plugin. This plugin uses APIs that are not available in the standard php include_path.
+
+    export WP_CLI_PHP_ARGS='-d include_path=vendor/google/appengine-php-sdk'
+
+  This is required every time and in every shell where you run
+  `wp-cli` with your local php, if/when this plugin is active.
+  This is *not* required for `dev_appserver.py` or anything else.
+
+  You can now activate rest of the plugins.
+
+## Create gcloud project and database for the deployment
+
+  Configure Google Cloud SDK with your account and the appropriate project ID. First time setup with `gcloud init`.
+
+  If you've already initialized & authorized the `gcloud` cli, create a new project and switch the gcloud configuration to use it with commands eg.
+
+    gcloud projects create some-very-descriptive-name
+    gcloud config set project some-very-descriptive-name
+
+  You can also create the project and database in the cloud console https://console.cloud.google.com/ but you _will_ need the cli to deploy, eventually.
+
+    gcloud sql instances create wp --activation-policy=ALWAYS --region=europe-north1
+
+## Connecting to the Cloud SQL instance
+
+  By default Cloud SQL instances are not accessible from external IP addresses. Instead of opening the access use `cloud_sql_proxy`. Download the proxy and install to some path in your $PATH. Do not commit it to the project repository.
+
+    curl -o cloud_sql_proxy https://dl.google.com/cloudsql/cloud_sql_proxy.darwin.amd64
+    chmod +x cloud_sql_proxy
+
+  Start the proxy. This will create UNIX sockets (in the given directory) for all Cloud SQL instances in your current project.
+
+    cloud_sql_proxy -dir /tmp
+
+  Leave it running in a separate terminal for as long as needed.
+  Now you can access the instances eg.
+
+    mysql -uroot -S /tmp/some-very-descriptive-name:europe-north1:wp
+
+  The naming convention is `<project name>:<region>:<instance name>`. If you have multiple SQL instances in your project, the
+  proxy command above will create a socket for each.
+
+  Create the database and user just like for the localhost earlier. You can manage the users and databases also from the Cloud Console browser UI but here is the cli-way for consistency.
+
+    mysql -uroot -S /tmp/some-very-descriptive-name:europe-north1:wp <<EOD
+    > create database wp;
+    > create user 'wp' identified by 'wp';
+    > grant all on wp.* to 'wp';
+    > EOD
+
+  Setup `.env.gae` for GAE deployment.
+
+    DB_NAME=wp
+    DB_USER=wp
+    DB_PASSWORD=wp
+    DB_HOST=:/cloudsql/some-very-descriptive-name:europe-north1:wp
+    WP_ENV=production
+    WP_HOME=https://some-very-descriptive-name.appspot.com
+    WP_SITEURL=${WP_HOME}/wp
+
+## Database migration from localhost to Cloud SQL
+
+  We can initialize the Cloud SQL instance database with data
+  from the local development version. This includes the Auth0
+  setup, so we don't have to redo it.
+
+    vendor/bin/wp search-replace 'http://localhost:8080' \
+      'https://some-very-descriptive-name.appspot.com' \
+      --export=migrate-localhost-to-gae.sql
+
+    mysql -uroot \
+      -S /tmp/some-very-descriptive-name:europe-north1:wp wp \
+      < migrate-localhost-to-gae.sql
+
+**NOTE! In the examples above we're using `wp` as instance name database name, user name and password. This may be confusing.**
