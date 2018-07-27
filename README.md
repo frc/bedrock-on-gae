@@ -181,3 +181,38 @@ Start the development server.
 
     dev_appserver.py app.yaml
 
+## Auth0 setup
+
+Go to URL http://localhost:8080 to browse the site. Open the wp-admin
+at http://localhost:8080/wp/wp-admin/ to finalize the plugin setup.
+Sign-in with the administrator user and password defined above.
+Go to http://localhost:8080/wp/wp-admin/plugins.php and activate the Auth0 plugin to start the setup. Select "Standard Setup".
+
+Go to Auth0 dashboard and collect these three pieces of information.
+The exact details depend on the organization setup.
+* The tenant domain, eg. `YOUR-ORG.eu.auth0.com`
+* Auth0 application id of a "MACHINE TO MACHINE" application that
+  can create a suitable token for the Auth0 plugin, eg. `APP-ID`
+* Application secrect for this application, eg. `APP-SECRET`
+
+Eg. in our organization the application "Wordpress Auth0 plugin token generator" is specifically setup for this purpose. Go to https://manage.auth0.com/#/applications to get the id and secret.
+Setting up this Auth0 m2m application is not covered in this documentation. Follow the Auth0 plugin documentation for instructions.
+
+Generate a token for your Auth0 setup. This is a token that authorizes the Auth0 plugin to create the actual per-site configuration in Auth0.
+
+    curl --request POST \
+      --url https://YOUR-ORG.eu.auth0.com/oauth/token \
+      --header 'content-type: application/json' \
+      --data '{"client_id":"APP-ID","client_secret":"APP-SECRET","audience":"https://YOUR-ORG.eu.auth0.com/api/v2/","grant_type":"client_credentials"}'
+
+The output of this command contains the necessary token.
+
+    {"access_token":"TOKEN","scope":"create:client_grants update:client_grants read:users update:users create:users update:clients create:clients read:connections update:connections create:connections delete:rules create:rules update:guardian_factors","expires_in":86400,"token_type":"Bearer"}
+
+Input the tenant domain and this token (`TOKEN` above) the Auth0
+plugin setup. You can skip social login and account migration steps.
+Log out and in to verify the Auth0 setup is working.
+
+The application list at https://manage.auth0.com/#/applications
+should now contain a new entry, created by the Auth0 plugin
+setup wizard step described above. The name of the application is same as the title of the WP site you created. You *must* use descriptive names. Change the Auth0 application name if necessary. All sites and apps called just "wp", "foo" etc. may be deleted without any warning.
