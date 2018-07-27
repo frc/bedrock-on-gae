@@ -55,3 +55,53 @@
 
       echo '/advanced-cache.php' >>web/app/.gitignore
       echo '/object-cache.php' >>web/app/.gitignore
+
+## Local database and user setup
+
+  Create local MySQL database, eg.
+
+    mysql -uroot <<EOD
+    > create database wp;
+    > create user 'wp' identified by 'wp';
+    > grant all on wp.* to 'wp';
+    > EOD
+
+  Setup `.env` for local development:
+
+    DB_NAME=wp
+    DB_USER=wp
+    DB_PASSWORD=wp
+    DB_HOST=127.0.0.1
+    WP_ENV=development
+    WP_HOME=http://localhost:8080
+    WP_SITEURL=${WP_HOME}/wp
+
+  Initialize the database.
+
+    vendor/bin/wp core install \
+      --url=localhost --title=wp \
+      --admin_user=admin \
+      --admin_email=first.last@example.com
+
+    Admin password: *****
+    Success: WordPress installed successfully.
+
+  Verify the installation with eg. `vendor/bin/wp db check`,
+  list the plugins with `vendor/bin/wp plugin list` to verify
+  all tooling and paths are in place. The output should look like this.
+
+    +--------------------------+----------+--------+---------+
+    | name                     | status   | update | version |
+    +--------------------------+----------+--------+---------+
+    | batcache                 | inactive | none   | 1.2     |
+    | google-app-engine        | inactive | none   | 1.6     |
+    | auth0                    | inactive | none   | 3.6.2   |
+    | bedrock-autoloader       | must-use | none   | 1.0.0   |
+    | disallow-indexing        | must-use | none   | 1.0.0   |
+    | register-theme-directory | must-use | none   | 1.0.0   |
+    | advanced-cache.php       | dropin   | none   |         |
+    | object-cache.php         | dropin   | none   |         |
+    +--------------------------+----------+--------+---------+
+
+  Next step is to setup actual HTTP (development) server and
+  continue plugin setup on the browser.
