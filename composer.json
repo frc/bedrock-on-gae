@@ -38,10 +38,17 @@
     "vlucas/phpdotenv": "^2.0.1",
     "johnpbloch/wordpress": "4.9.7",
     "oscarotero/env": "^1.1.0",
-    "roots/wp-password-bcrypt": "1.0.0"
+    "roots/wp-password-bcrypt": "1.0.0",
+    "koodimonni/composer-dropin-installer": "^1.2",
+    "frc/wp-harness": "^1.1",
+    "wpackagist-plugin/google-app-engine": "^1.6",
+    "wpackagist-plugin/batcache": "^1.4",
+    "wpackagist-plugin/memcached-redux": "^0.1.6",
+    "wpackagist-plugin/auth0": "^3.6"
   },
   "require-dev": {
-    "squizlabs/php_codesniffer": "^3.0.2"
+    "squizlabs/php_codesniffer": "^3.0.2",
+    "google/appengine-php-sdk": "^1.9"
   },
   "extra": {
     "installer-paths": {
@@ -49,7 +56,14 @@
       "web/app/plugins/{$name}/": ["type:wordpress-plugin"],
       "web/app/themes/{$name}/": ["type:wordpress-theme"]
     },
-    "wordpress-install-dir": "web/wp"
+    "wordpress-install-dir": "web/wp",
+    "dropin-paths": {
+      "web/app": [
+        "package:wpackagist-plugin/memcached-redux:object-cache.php",
+        "package:wpackagist-plugin/batcache:advanced-cache.php",
+        "type:wordpress-dropin"
+      ]
+    }
   },
   "scripts": {
     "post-root-package-install": [
