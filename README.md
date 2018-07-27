@@ -105,3 +105,79 @@
 
   Next step is to setup actual HTTP (development) server and
   continue plugin setup on the browser.
+
+## Prepare the GAE development setup
+
+  Install Google Cloud SDK. Download it from https://cloud.google.com/sdk/ and follow the setup instructions, or install it with `brew cask`.
+  
+    brew cask install google-cloud-sdk
+
+  Create `app.yaml` that defines the application routes etc.
+
+    runtime: php55
+    api_version: 1
+
+    handlers:
+    # Wordpress core as-is
+    - url: /wp/(.*\.(htm|html|css|js|ico|jpg|jpeg|png|gif|woff|ttf|otf|eot|svg))
+      static_files: web/wp/\1
+      upload: web/wp/.*\.(htm|html|css|js|ico|jpg|jpeg|png|gif|woff|ttf|otf|eot|svg)$
+      application_readable: true
+
+    # User content: themes, plugins, uploads
+    - url: /app/(.*\.(htm|html|css|js|ico|jpg|jpeg|png|gif|woff|ttf|otf|eot|svg))
+      static_files: web/app/\1
+      upload: web/app/.*\.(htm|html|css|js|ico|jpg|jpeg|png|gif|woff|ttf|otf|eot|svg)$
+      application_readable: true
+
+    # Entry URL for wp-admin
+    - url: /wp/wp-admin/
+      script: web/wp/wp-admin/index.php
+      secure: always
+
+    # All other wp-admin components
+    - url: /wp/wp-admin/(.+)
+      script: web/wp/wp-admin/\1
+      secure: always
+
+    # Handle wp-login separately, requires https
+    - url: /wp/wp-login.php
+      script: web/wp/wp-login.php
+      secure: always
+
+    # Handle wp-cron separatelyu, only admin (see cron.yaml) can call
+    - url: /wp/wp-cron.php
+      script: web/wp/wp-cron.php
+      login: admin
+
+    # Handle all other WP core entrypoints
+    - url: /wp/wp-(.+).php
+      script: web/wp/wp-\1.php
+
+    - url: /wp/xmlrpc.php
+      script: web/wp/xmlrpc.php
+
+    # Other URLs are handled by the main index.php (ie. bedrock),
+    # which then loads the config, WP core etc.
+    - url: /(.+)?/?
+      script: web/index.php
+
+Create `cron.yaml` eg.
+
+    cron:
+    - description: "wordpress cron tasks"
+      url: /wp/wp-cron.php
+      schedule: every 15 minutes
+
+Create `php.ini` eg.
+
+    google_app_engine.enable_functions = "php_sapi_name, gc_enabled"
+    allow_url_include = "1"
+    upload_max_filesize = "8M"
+    google_app_engine.disable_readonly_filesystem = "1"
+    ;google_app_engine.allow_include_gs_buckets = "1"
+
+Start the development server.
+
+    dev_appserver.py app.yaml
+
