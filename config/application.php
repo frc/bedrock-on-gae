@@ -11,11 +11,21 @@ $webroot_dir = $root_dir . '/web';
  */
 Env::init();
 
+/*
+ * Detect if we're running on GAE
+ */
+if (isset($_SERVER['SERVER_SOFTWARE']) && strpos($_SERVER['SERVER_SOFTWARE'], 'Google App Engine') !== false) {
+    $onGae = true;
+} else {
+    $onGae = false;
+}
+
 /**
  * Use Dotenv to set required environment variables and load .env file in root
  */
-$dotenv = new Dotenv\Dotenv($root_dir);
-if (file_exists($root_dir . '/.env')) {
+$dotenv_name = $onGae ? '.env.gae' : '.env';
+$dotenv = new Dotenv\Dotenv($root_dir, $dotenv_name);
+if (file_exists($root_dir . '/' . $dotenv_name)) {
     $dotenv->load();
     $dotenv->required(['DB_NAME', 'DB_USER', 'DB_PASSWORD', 'WP_HOME', 'WP_SITEURL']);
 }

@@ -295,3 +295,66 @@ setup wizard step described above. The name of the application is same as the ti
       < migrate-localhost-to-gae.sql
 
 **NOTE! In the examples above we're using `wp` as instance name database name, user name and password. This may be confusing.**
+
+## Deploying to GAE
+
+  Define what files to ignore when deploying by listing those in
+  a .gitignore style file `.gcloudignore`. If ignore rules are not defined, GAE will use defaults that includes eg. _all_ dot-files. We want to deploy `.env.gae` (so the defaults do not work for us) but _not_ eg. `.env` (so we define it below).
+
+    echo '.env' >.gcloudignore
+
+  Add this code in `config/application.php`, some place before
+  the Dotenv operation.
+
+    /*
+    * Detect if we're running on GAE
+    */
+    if (isset($_SERVER['SERVER_SOFTWARE']) && strpos($_SERVER['SERVER_SOFTWARE'], 'Google App Engine') !== false) {
+        $onGae = true;
+    } else {
+        $onGae = false;
+    }
+
+  Change the Dotenv code as follows. This will select the env-file
+  to load depending on the runtime (local development or GAE).
+
+    /**
+     * Use Dotenv to set required environment variables and load .env file in root
+     */
+    $dotenv_name = $onGae ? '.env.gae' : '.env';
+    $dotenv = new Dotenv\Dotenv($root_dir, $dotenv_name);
+    if (file_exists($root_dir . '/' . $dotenv_name)) {
+        $dotenv->load();
+        $dotenv->required(['DB_NAME', 'DB_USER', 'DB_PASSWORD', 'WP_HOME', 'WP_SITEURL']);
+    }
+
+  Add these definitions to `config/environments/production.php`.
+
+    define('WP_CACHE', true);
+    define('DISABLE_WP_CRON', true);
+
+  Deploy to GAE. First time deployment will ask the region.
+  Following deploys will use the same region and copy only
+  modified files. GAE does not perform build steps on the
+  cloud, so everything is copied as static files and must
+  include the build targets (eg. `vendor` and `web/wp`).
+
+    gcloud app deploy app.yaml
+
+  Site is now deployed and configured. Go to
+  https://some-very-descriptive-name.appspot.com/wp/wp-admin/
+  and try loggin with Auth0. Follow the instructions to add the login address to the list of allowed callback addresses of the associated Auth0 application. The same application is used for localhost development and was setup in the earlier steps. The error page has direct link to the correct configuration page in Auth0 dashboard, and shows the exact URL that needs to be added.
+  Add also site root URL to the list of Allowed Web Origins.
+
+  Go to https://console.cloud.google.com/logs/viewer?project=some-very-descriptive-name to view additional logs.
+  For example, if the project does not have billing enabled
+  (depending how the project was setup), the
+  outgoing http requests will fail. This shows in the log as error
+  "The Socket API will be enabled for this application once billing has been enabled in the admin console."
+
+  Enable billing for the gcloud app, if necessary. Log in to wp-admin and go to https://some-very-descriptive-name.appspot.com/wp/wp-admin/options-general.php?page=appengine and set bucket name to empty (ie. use
+  the default as instructed on the page). This is necessary because
+  the config was copied from the local development environment.
+
+  Test the admin functionalities, eg. creating new posts and media
+  library items. Test batcache page caching in a separate incognito window.
