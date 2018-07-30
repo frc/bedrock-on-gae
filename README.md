@@ -358,3 +358,35 @@ setup wizard step described above. The name of the application is same as the ti
 
   Test the admin functionalities, eg. creating new posts and media
   library items. Test batcache page caching in a separate incognito window.
+
+## Summary
+
+  To deploy what is already in this repository, here are the steps.
+
+    gcloud projects create some-very-descriptive-name
+    gcloud config set project some-very-descriptive-name
+    gcloud beta billing accounts list  ## locate the ID
+    gcloud beta billing projects link some-very-descriptive-name --billing-account=ID
+    gcloud sql instances create wp --activation-policy=ALWAYS --region=europe-north1
+
+    cloud_sql_proxy -dir /tmp
+
+    mysql -uroot -S /tmp/some-very-descriptive-name:europe-north1:wp <<EOD
+    > create database wp;
+    > create user 'wp' identified by 'wp';
+    > grant all on wp.* to 'wp';
+    > EOD
+
+    cat >.env.gae <<EOD
+    > DB_NAME=wp
+    > DB_USER=wp
+    > DB_PASSWORD=wp
+    > DB_HOST=:/cloudsql/some-very-descriptive-name:europe-north1:wp
+    > WP_ENV=production
+    > WP_HOME=https://some-very-descriptive-name.appspot.com
+    > WP_SITEURL=\${WP_HOME}/wp
+    > EOD
+
+    composer install
+    gcloud app deploy app.yaml
+    gcloud app browse  ## setup wp & activate plugins in the browser
