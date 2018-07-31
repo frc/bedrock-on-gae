@@ -390,3 +390,60 @@ setup wizard step described above. The name of the application is same as the ti
     composer install
     gcloud app deploy app.yaml
     gcloud app browse  ## setup wp & activate plugins in the browser
+
+## Automating the build with Cloud Build
+
+  Define the build configuration in `cloudbuild.yaml`
+
+    steps:
+    - name: 'composer'
+      args: ['install']
+    - name: gcr.io/cloud-builders/gsutil
+      args: ['cp', '-r', 'gs://${PROJECT_ID}_build_dropin/*', '.']
+    - name: 'gcr.io/cloud-builders/gcloud'
+      args: ['app', 'deploy']
+
+  Create the build configuration / drop-in bucket and
+  copy your `.env.gae` there.
+
+    gsutil mb -l eu gs://some-very-descriptive-name_build_dropin
+    gsutil cp .env.gae gs://some-very-descriptive-name_build_dropin
+
+  Clean up the repo of all already generated build assets.
+  Test automated build locally. Setting up `cloud-build-local` requires Docker and some setup. See Google Cloud documentation for details.
+
+    git clean -fdx
+    cloud-build-local --dryrun=false .
+
+  Before submitting the build to Cloud Build, enable the
+  App Engine Admin API and Cloud Build API for your app and authorize the
+  Cloud Build service account to roles `App Engine Deployer`
+  and `App Engine Service Admin`. Without these permissions
+  the Cloud Build can't deploy new versions and setup traffic
+  splitting to the new version.
+
+    gcloud services enable appengine.googleapis.com
+    gcloud services enable cloudbuild.googleapis.com
+    gcloud projects get-iam-policy some-very-descriptive-name
+
+    # locate the NNN@cloudbuild.gserviceaccount.com member
+    # that has been granted roles/cloudbuild.builds.builder
+    # NNN is the project number, so you may know it already
+
+    gcloud projects add-iam-policy-binding some-very-descriptive-name \
+      --member serviceAccount:***@cloudbuild.gserviceaccount.com \
+      --role roles/appengine.deployer
+    gcloud projects add-iam-policy-binding some-very-descriptive-name \
+      --member serviceAccount:***@cloudbuild.gserviceaccount.com \
+      --role roles/appengine.serviceAdmin
+
+  Submit the build to the Cloud Build
+
+    gcloud builds submit --config cloudbuild.yaml .
+
+  Finally, you can setup build trigger for Github to trigger
+  the build automatically on push https://console.cloud.google.com/cloud-build/triggers?project=wp-on-gae-ci
+
+  Google Cloud Build app for Github https://github.com/apps/google-cloud-build can be used
+  to build multiple selected or all repositories with one
+  Google Cloud project's Cloud Build. This is suitable for eg. CI testing, but project specific deployment (like configured above) would need another solution.
